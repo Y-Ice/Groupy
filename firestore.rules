@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admins collection
+    match /admins/{adminId} {
+      allow read, write: if true;
+    }
+
+    // Tables collection - public read & write for registration & management
+    match /tables/{tableId} {
+      allow read, write: if true;
+    }
+
+    // Stacks collection - public read & write
+    match /stacks/{stackId} {
+      allow read, write: if true;
+    }
+
+    // Groups collection - public read & write for group assignment & management
+    match /groups/{groupId} {
+      allow read, write: if true;
+    }
+
+    // Students collection - public read & write for registration & management
+    match /students/{studentId} {
+      allow read, write: if true;
+    }
+
+    // Settings collection - public read & write
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // Activity Logs - public read & write
+    match /activityLogs/{logId} {
+      allow read, write: if true;
+    }
+  }
+}
+

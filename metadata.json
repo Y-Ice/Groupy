@@ -1,0 +1,6 @@
+{
+  "name": "Groupy",
+  "description": "Class project group management application for administrators and students with QR code stack registration and auto-grouping.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
