@@ -14,7 +14,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { ProjectTable, TechStack, Student, Group, TableSettings, ActivityLog } from '../types';
+import { ProjectTable, TechStack, Student, Group, TableSettings, ActivityLog, SUPER_ADMIN_EMAIL, AdminAccessRequest, AdminApprovalStatus } from '../types';
 
 // Default Stacks list
 export const DEFAULT_STACKS: Omit<TechStack, 'id'>[] = [
@@ -527,4 +527,124 @@ export const getActivityLogs = async (): Promise<ActivityLog[]> => {
   const snap = await getDocs(collection(db, 'activityLogs'));
   const logs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as ActivityLog));
   return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+};
+
+// --- ADMIN APPROVAL MANAGEMENT ---
+
+export const requestOrCheckAdminAccess = async (
+  email: string,
+  uid: string,
+  displayName?: string
+): Promise<AdminApprovalStatus> => {
+  const cleanEmail = email.toLowerCase().trim();
+  const superAdminEmail = SUPER_ADMIN_EMAIL.toLowerCase().trim();
+
+  // Primary Super Admin is auto-approved with super privileges
+  if (cleanEmail === superAdminEmail) {
+    const docRef = doc(db, 'admin_approvals', cleanEmail);
+    await setDoc(
+      docRef,
+      {
+        id: cleanEmail,
+        email: cleanEmail,
+        displayName: displayName || 'Super Administrator',
+        uid,
+        status: 'approved',
+        updatedAt: new Date().toISOString(),
+        notes: 'Primary Super Admin (Owner)',
+      },
+      { merge: true }
+    );
+    return 'approved';
+  }
+
+  // Check if approval document exists
+  const docRef = doc(db, 'admin_approvals', cleanEmail);
+  const snap = await getDoc(docRef);
+
+  if (snap.exists()) {
+    const data = snap.data() as AdminAccessRequest;
+    return data.status || 'pending';
+  }
+
+  // If new request, create as pending
+  const now = new Date().toISOString();
+  const newRequest: AdminAccessRequest = {
+    id: cleanEmail,
+    email: cleanEmail,
+    displayName: displayName || cleanEmail,
+    uid,
+    status: 'pending',
+    requestedAt: now,
+    updatedAt: now,
+  };
+
+  await setDoc(docRef, sanitizeData(newRequest));
+  await logActivity('GLOBAL', 'ADMIN_ACCESS_REQUEST', `New admin access request submitted for ${cleanEmail}`);
+  return 'pending';
+};
+
+export const getAdminRequests = async (): Promise<AdminAccessRequest[]> => {
+  const snap = await getDocs(collection(db, 'admin_approvals'));
+  const requests = snap.docs.map(
+    (d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as AdminAccessRequest)
+  );
+  return requests.sort((a, b) => new Date(b.requestedAt || 0).getTime() - new Date(a.requestedAt || 0).getTime());
+};
+
+export const updateAdminApprovalStatus = async (
+  targetEmail: string,
+  status: AdminApprovalStatus,
+  approvedBy: string,
+  notes?: string
+): Promise<void> => {
+  const cleanEmail = targetEmail.toLowerCase().trim();
+  const docRef = doc(db, 'admin_approvals', cleanEmail);
+  const now = new Date().toISOString();
+
+  await setDoc(
+    docRef,
+    sanitizeData({
+      id: cleanEmail,
+      email: cleanEmail,
+      status,
+      approvedBy,
+      updatedAt: now,
+      notes: notes || '',
+    }),
+    { merge: true }
+  );
+
+  await logActivity(
+    'GLOBAL',
+    'ADMIN_STATUS_CHANGE',
+    `Admin status for ${cleanEmail} updated to "${status.toUpperCase()}" by ${approvedBy}`
+  );
+};
+
+export const preApproveAdminEmail = async (targetEmail: string, approvedBy: string): Promise<void> => {
+  const cleanEmail = targetEmail.toLowerCase().trim();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new Error('Please enter a valid email address.');
+  }
+
+  const docRef = doc(db, 'admin_approvals', cleanEmail);
+  const now = new Date().toISOString();
+
+  await setDoc(
+    docRef,
+    sanitizeData({
+      id: cleanEmail,
+      email: cleanEmail,
+      displayName: cleanEmail,
+      status: 'approved',
+      requestedAt: now,
+      updatedAt: now,
+      approvedBy,
+      notes: 'Pre-approved by Super Admin',
+    }),
+    { merge: true }
+  );
+
+  await logActivity('GLOBAL', 'PRE_APPROVE_ADMIN', `Pre-approved admin email ${cleanEmail}`);
 };

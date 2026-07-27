@@ -11,7 +11,8 @@ import {
   EmailAuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase/config';
-import { AdminUser } from '../types';
+import { AdminUser, SUPER_ADMIN_EMAIL } from '../types';
+import { requestOrCheckAdminAccess } from '../services/dbService';
 
 interface AuthContextType {
   currentUser: AdminUser | null;
@@ -21,6 +22,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updateAdminProfile: (displayName: string) => Promise<void>;
   updateAdminPassword: (currentPass: string, newPass: string) => Promise<void>;
+  refreshAuthStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,24 +31,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const checkUserStatus = async (user: any) => {
+    if (!user || !user.email) {
+      setCurrentUser(null);
+      return;
+    }
+
+    const email = user.email.toLowerCase().trim();
+    const isSuper = email === SUPER_ADMIN_EMAIL.toLowerCase().trim();
+
+    try {
+      const approvalStatus = await requestOrCheckAdminAccess(
+        email,
+        user.uid,
+        user.displayName || undefined
+      );
+
+      setCurrentUser({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || 'Class Administrator',
+        photoURL: user.photoURL,
+        isSuperAdmin: isSuper,
+        approvalStatus: isSuper ? 'approved' : approvalStatus,
+      });
+    } catch (err) {
+      console.error('Failed to check admin access status:', err);
+      // Fallback
+      setCurrentUser({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || 'Class Administrator',
+        photoURL: user.photoURL,
+        isSuperAdmin: isSuper,
+        approvalStatus: isSuper ? 'approved' : 'pending',
+      });
+    }
+  };
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        const admin: AdminUser = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || 'Class Administrator',
-          photoURL: user.photoURL,
-        };
-        setCurrentUser(admin);
-      } else {
-        setCurrentUser(null);
-      }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
+      await checkUserStatus(user);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  const refreshAuthStatus = async () => {
+    if (auth.currentUser) {
+      await checkUserStatus(auth.currentUser);
+    }
+  };
 
   const login = async (email: string, pass: string) => {
     try {
@@ -99,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resetPassword,
         updateAdminProfile,
         updateAdminPassword,
+        refreshAuthStatus,
       }}
     >
       {children}

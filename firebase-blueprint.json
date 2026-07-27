@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "AdminApproval": {
+      "title": "Admin Access Request & Approval",
+      "description": "Records admin access requests and approval status managed by the super admin (isaacyakubu544@gmail.com)",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "uid": { "type": "string" },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "requestedAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["email", "status"]
+    }
+  },
+  "firestore": {
+    "/admin_approvals/{email}": {
+      "schema": "AdminApproval",
+      "description": "Admin access requests keyed by lowercased email address"
+    }
+  }
+}

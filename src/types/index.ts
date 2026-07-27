@@ -1,10 +1,28 @@
 export type UserRole = 'admin';
 
+export const SUPER_ADMIN_EMAIL = 'isaacyakubu544@gmail.com';
+
+export type AdminApprovalStatus = 'approved' | 'pending' | 'rejected';
+
 export interface AdminUser {
   uid: string;
   email: string | null;
   displayName?: string | null;
   photoURL?: string | null;
+  isSuperAdmin?: boolean;
+  approvalStatus?: AdminApprovalStatus;
+}
+
+export interface AdminAccessRequest {
+  id: string; // doc ID, usually lowercased email
+  email: string;
+  displayName?: string;
+  uid?: string;
+  status: AdminApprovalStatus;
+  requestedAt: string;
+  updatedAt: string;
+  approvedBy?: string;
+  notes?: string;
 }
 
 export type TableStatus = 'active' | 'closed' | 'archived';

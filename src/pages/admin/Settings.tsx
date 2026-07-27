@@ -4,6 +4,7 @@ import { getTableSettings, updateTableSettings } from '../../services/dbService'
 import { TableSettings } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { AdminApprovalsManager } from '../../components/admin/AdminApprovalsManager';
 
 export const Settings: React.FC = () => {
   const { currentUser, updateAdminProfile, updateAdminPassword } = useAuth();
@@ -118,6 +119,9 @@ export const Settings: React.FC = () => {
           Manage your administrator profile, security credentials, and global table grouping rules.
         </p>
       </div>
+
+      {/* Admin Access Approvals Manager */}
+      <AdminApprovalsManager />
 
       {/* Admin Profile Details Card */}
       <div className="glass-card p-6 rounded-2xl space-y-4">

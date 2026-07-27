@@ -2,6 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Admin Approvals collection
+    match /admin_approvals/{approvalId} {
+      allow read, write: if true;
+    }
+
     // Admins collection
     match /admins/{adminId} {
       allow read, write: if true;
