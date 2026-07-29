@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { FolderGit2, Users, Layers, ArrowRight, ArrowRightLeft, ShieldAlert, Trash2, AlertCircle } from 'lucide-react';
-import { getGroups, getStudents, getStacks, getTables, moveStudentGroup, deleteGroup } from '../../services/dbService';
+import { FolderGit2, Users, Layers, ArrowRight, ArrowRightLeft, ShieldAlert, Trash2, AlertCircle, BookOpen, Edit3, Check } from 'lucide-react';
+import { getGroups, getStudents, getStacks, getTables, moveStudentGroup, deleteGroup, updateGroupTopic } from '../../services/dbService';
 import { Group, Student, TechStack, ProjectTable } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { Modal } from '../../components/common/Modal';
@@ -23,6 +23,11 @@ export const Groups: React.FC = () => {
   // Delete Group State
   const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
   const [deletingGroup, setDeletingGroup] = useState(false);
+
+  // Topic Editing State
+  const [editingTopicKey, setEditingTopicKey] = useState<string | null>(null);
+  const [topicInput, setTopicInput] = useState('');
+  const [savingTopic, setSavingTopic] = useState(false);
 
   const { showToast } = useToast();
 
@@ -90,7 +95,39 @@ export const Groups: React.FC = () => {
     }
   };
 
-  const filteredGroups = groups.filter((g) => {
+  const handleSaveTopic = async (tableId: string, groupNumber: number, groupId: string) => {
+    try {
+      setSavingTopic(true);
+      await updateGroupTopic(tableId, groupNumber, groupId, topicInput);
+      showToast(
+        'success',
+        'Topic Updated',
+        `Project topic for Group ${groupNumber} saved successfully.`
+      );
+      setEditingTopicKey(null);
+      fetchData();
+    } catch (err: any) {
+      showToast('error', 'Failed to save topic', err.message);
+    } finally {
+      setSavingTopic(false);
+    }
+  };
+
+  // Failsafe UI deduplication for groups
+  const uniqueGroupsMap = new Map<string, Group>();
+  groups.forEach((g) => {
+    const table = tables.find(
+      (t) => t.id === g.tableId || t.title.trim().toLowerCase() === String(g.tableId).trim().toLowerCase()
+    );
+    const resolvedTableId = table ? table.id : g.tableId;
+    const key = `${resolvedTableId}_group_${g.groupNumber}`;
+    if (!uniqueGroupsMap.has(key)) {
+      uniqueGroupsMap.set(key, { ...g, tableId: resolvedTableId });
+    }
+  });
+  const uniqueGroups = Array.from(uniqueGroupsMap.values());
+
+  const filteredGroups = uniqueGroups.filter((g) => {
     const matchesTable = selectedTableId === 'all' || g.tableId === selectedTableId;
     return matchesTable;
   });
@@ -161,9 +198,22 @@ export const Groups: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredGroups.map((group) => {
             const table = tables.find((t) => t.id === group.tableId);
-            let groupMembers = students.filter(
-              (s) => s.groupId === group.id || (s.tableId === group.tableId && s.groupNumber === group.groupNumber)
-            );
+            const rawMembers = students.filter((s) => {
+              const studentTableMatch =
+                s.tableId === group.tableId ||
+                (table && tables.find((t) => t.id === s.tableId)?.title.trim().toLowerCase() === table.title.trim().toLowerCase());
+
+              return (s.groupId && s.groupId === group.id) || (studentTableMatch && s.groupNumber === group.groupNumber);
+            });
+
+            // Deduplicate student members by ID
+            const memberMap = new Map<string, Student>();
+            rawMembers.forEach((m) => {
+              if (!memberMap.has(m.id)) {
+                memberMap.set(m.id, m);
+              }
+            });
+            let groupMembers = Array.from(memberMap.values());
 
             if (selectedStackId !== 'all') {
               groupMembers = groupMembers.filter((s) => s.stackId === selectedStackId);
@@ -214,6 +264,74 @@ export const Groups: React.FC = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Project Topic Section */}
+                  <div className="mt-3 p-3 rounded-xl bg-indigo-50/70 dark:bg-slate-800/60 border border-indigo-100 dark:border-slate-700/80 transition-all">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                        Project Topic
+                      </span>
+                      {editingTopicKey !== `${group.tableId}_${group.groupNumber}` && (
+                        <button
+                          onClick={() => {
+                            setEditingTopicKey(`${group.tableId}_${group.groupNumber}`);
+                            setTopicInput(group.topic || '');
+                          }}
+                          className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          {group.topic ? 'Edit Topic' : '+ Assign Topic'}
+                        </button>
+                      )}
+                    </div>
+
+                    {editingTopicKey === `${group.tableId}_${group.groupNumber}` ? (
+                      <div className="mt-2 space-y-2">
+                        <input
+                          type="text"
+                          value={topicInput}
+                          onChange={(e) => setTopicInput(e.target.value)}
+                          placeholder="e.g. Smart IoT Home Automation System"
+                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveTopic(group.tableId, group.groupNumber, group.id);
+                            }
+                          }}
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingTopicKey(null)}
+                            className="px-2.5 py-1 text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingTopic}
+                            onClick={() => handleSaveTopic(group.tableId, group.groupNumber, group.id)}
+                            className="px-3 py-1 text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-1 disabled:opacity-50 cursor-pointer shadow-sm"
+                          >
+                            {savingTopic ? 'Saving...' : 'Save Topic'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 leading-snug">
+                        {group.topic ? (
+                          group.topic
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-500 italic font-normal">
+                            No topic assigned yet
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
 
                   {/* Member List */}
                   <div className="mt-3 space-y-2 max-h-52 overflow-y-auto pr-1">

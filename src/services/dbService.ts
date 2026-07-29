@@ -59,7 +59,34 @@ export const seedDefaultStacks = async (): Promise<TechStack[]> => {
 // --- TABLES ---
 export const getTables = async (): Promise<ProjectTable[]> => {
   const snapshot = await getDocs(collection(db, 'tables'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as ProjectTable));
+  const rawTables = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as ProjectTable));
+
+  // Deduplicate tables by title (trimmed, case-insensitive)
+  const tableMap = new Map<string, ProjectTable>();
+  const duplicateTableIdsToDelete: string[] = [];
+
+  for (const t of rawTables) {
+    if (!t.title) continue;
+    const normTitle = t.title.trim().toLowerCase();
+
+    if (!tableMap.has(normTitle)) {
+      tableMap.set(normTitle, {
+        ...t,
+        title: t.title.trim(),
+      });
+    } else {
+      if (t.id && t.id !== tableMap.get(normTitle)!.id) {
+        duplicateTableIdsToDelete.push(t.id);
+      }
+    }
+  }
+
+  if (duplicateTableIdsToDelete.length > 0) {
+    Promise.all(duplicateTableIdsToDelete.map((id) => deleteDoc(doc(db, 'tables', id))))
+      .catch((err) => console.warn('Background cleanup of duplicate tables:', err));
+  }
+
+  return Array.from(tableMap.values());
 };
 
 export const getTableById = async (tableId: string): Promise<ProjectTable | null> => {
@@ -205,28 +232,40 @@ export const registerAndAssignStudent = async (params: {
     const tableTxSnap = await transaction.get(tableRef);
     if (!tableTxSnap.exists()) throw new Error('Table does not exist');
 
-    // 2. Map existing or new group refs for group numbers 1..maxGroups
-    const groupMap = new Map<number, { ref: any; group: Group }>();
+    // 2. Map existing or new group refs for group numbers 1..maxGroups with deterministic document IDs
+    const groupMap = new Map<number, { ref: any; group: Group; isExisting: boolean }>();
 
     for (let num = 1; num <= maxGroups; num++) {
-      const match = existingGroups.find((g) => g.groupNumber === num);
-      if (match) {
-        const gRef = doc(db, 'groups', match.id);
-        const gSnap = await transaction.get(gRef);
-        if (gSnap.exists()) {
-          groupMap.set(num, { ref: gRef, group: { id: gSnap.id, ...gSnap.data() } as Group });
-        }
-      }
-    }
+      const canonicalId = `${tableId}_group_${num}`;
+      const canonicalRef = doc(db, 'groups', canonicalId);
+      const canonicalSnap = await transaction.get(canonicalRef);
 
-    // For any group number 1..maxGroups without a document yet, prepare a new doc ref
-    for (let num = 1; num <= maxGroups; num++) {
-      if (!groupMap.has(num)) {
-        const newGRef = doc(collection(db, 'groups'));
+      if (canonicalSnap.exists()) {
         groupMap.set(num, {
-          ref: newGRef,
+          ref: canonicalRef,
+          group: { id: canonicalSnap.id, ...canonicalSnap.data() } as Group,
+          isExisting: true,
+        });
+      } else {
+        // Fallback: check if an existing legacy group doc exists from earlier auto-ids
+        const legacyMatch = existingGroups.find((g) => g.groupNumber === num);
+        if (legacyMatch) {
+          const legacyRef = doc(db, 'groups', legacyMatch.id);
+          const legacySnap = await transaction.get(legacyRef);
+          if (legacySnap.exists()) {
+            groupMap.set(num, {
+              ref: legacyRef,
+              group: { id: legacySnap.id, ...legacySnap.data() } as Group,
+              isExisting: true,
+            });
+            continue;
+          }
+        }
+
+        groupMap.set(num, {
+          ref: canonicalRef,
           group: {
-            id: newGRef.id,
+            id: canonicalId,
             tableId,
             groupNumber: num,
             stackId,
@@ -234,6 +273,7 @@ export const registerAndAssignStudent = async (params: {
             memberIds: [],
             createdAt: new Date().toISOString(),
           },
+          isExisting: false,
         });
       }
     }
@@ -243,6 +283,7 @@ export const registerAndAssignStudent = async (params: {
       groupNum: number;
       ref: any;
       group: Group;
+      isExisting: boolean;
       stackCount: number;
       totalCount: number;
     }[] = [];
@@ -258,6 +299,7 @@ export const registerAndAssignStudent = async (params: {
         groupNum: num,
         ref: gObj.ref,
         group: gObj.group,
+        isExisting: gObj.isExisting,
         stackCount: sameStackCount,
         totalCount: studentsInGroup.length,
       });
@@ -291,10 +333,9 @@ export const registerAndAssignStudent = async (params: {
       submittedAt: new Date().toISOString(),
     };
 
-    const isNewDoc = !existingGroups.some((g) => g.id === targetGroup.id);
-    const updatedMemberIds = Array.from(new Set([...targetGroup.memberIds, newStudent.id]));
+    const updatedMemberIds = Array.from(new Set([...(targetGroup.memberIds || []), newStudent.id]));
 
-    if (isNewDoc) {
+    if (!chosenStats.isExisting) {
       transaction.set(
         targetGroupRef,
         sanitizeData({
@@ -363,15 +404,109 @@ export const getStudentById = async (studentId: string): Promise<Student | null>
   return { id: snap.id, ...(snap.data() as Record<string, any>) } as Student;
 };
 
-export const getGroups = async (tableId?: string): Promise<Group[]> => {
-  let q;
-  if (tableId) {
-    q = query(collection(db, 'groups'), where('tableId', '==', tableId));
-  } else {
-    q = collection(db, 'groups');
+export const getGroups = async (tableIdFilter?: string): Promise<Group[]> => {
+  const [tablesSnap, groupsSnap, studentsSnap] = await Promise.all([
+    getDocs(collection(db, 'tables')),
+    getDocs(collection(db, 'groups')),
+    getDocs(collection(db, 'students')),
+  ]);
+
+  const rawTables = tablesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as ProjectTable));
+  const rawGroups = groupsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Group));
+  const rawStudents = studentsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Student));
+
+  // Build canonical table lookup map: matches by ID or title (case-insensitive & trimmed)
+  const tableLookup = new Map<string, ProjectTable>();
+  rawTables.forEach((t) => {
+    if (t.id) tableLookup.set(t.id.toLowerCase().trim(), t);
+    if (t.title) tableLookup.set(t.title.toLowerCase().trim(), t);
+  });
+
+  const groupMap = new Map<string, Group>();
+  const duplicateGroupDocIdsToDelete: string[] = [];
+
+  for (const g of rawGroups) {
+    // Resolve table ID canonically
+    let canonicalTableId = g.tableId;
+    if (g.tableId && tableLookup.has(g.tableId.trim().toLowerCase())) {
+      canonicalTableId = tableLookup.get(g.tableId.trim().toLowerCase())!.id;
+    }
+
+    const num = parseInt(String(g.groupNumber || 1), 10) || 1;
+    if (!canonicalTableId) continue;
+
+    const compositeKey = `${canonicalTableId}_group_${num}`;
+
+    if (!groupMap.has(compositeKey)) {
+      groupMap.set(compositeKey, {
+        ...g,
+        id: g.id || compositeKey,
+        tableId: canonicalTableId,
+        groupNumber: num,
+        memberIds: Array.isArray(g.memberIds) ? [...g.memberIds] : [],
+        topic: g.topic || '',
+      });
+    } else {
+      const existing = groupMap.get(compositeKey)!;
+      const mergedMemberIds = Array.from(
+        new Set([...(existing.memberIds || []), ...(g.memberIds || [])])
+      );
+      existing.memberIds = mergedMemberIds;
+      if (!existing.topic && g.topic) {
+        existing.topic = g.topic;
+      }
+
+      if (g.id && g.id !== existing.id) {
+        duplicateGroupDocIdsToDelete.push(g.id);
+      }
+    }
   }
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Group));
+
+  // Include groups implied by registered students
+  rawStudents.forEach((s) => {
+    let canonicalTableId = s.tableId;
+    if (s.tableId && tableLookup.has(s.tableId.trim().toLowerCase())) {
+      canonicalTableId = tableLookup.get(s.tableId.trim().toLowerCase())!.id;
+    }
+
+    const num = parseInt(String(s.groupNumber || 1), 10);
+    if (canonicalTableId && num > 0) {
+      const compositeKey = `${canonicalTableId}_group_${num}`;
+      if (!groupMap.has(compositeKey)) {
+        groupMap.set(compositeKey, {
+          id: compositeKey,
+          tableId: canonicalTableId,
+          groupNumber: num,
+          stackId: s.stackId,
+          stackName: s.stackName,
+          memberIds: [s.id],
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        const existing = groupMap.get(compositeKey)!;
+        if (!existing.memberIds.includes(s.id)) {
+          existing.memberIds.push(s.id);
+        }
+      }
+    }
+  });
+
+  if (duplicateGroupDocIdsToDelete.length > 0) {
+    Promise.all(duplicateGroupDocIdsToDelete.map((id) => deleteDoc(doc(db, 'groups', id))))
+      .catch((err) => console.warn('Background cleanup of duplicate group documents:', err));
+  }
+
+  let result = Array.from(groupMap.values());
+
+  if (tableIdFilter) {
+    let canonicalFilterId = tableIdFilter;
+    if (tableLookup.has(tableIdFilter.trim().toLowerCase())) {
+      canonicalFilterId = tableLookup.get(tableIdFilter.trim().toLowerCase())!.id;
+    }
+    result = result.filter((g) => g.tableId === canonicalFilterId);
+  }
+
+  return result.sort((a, b) => a.groupNumber - b.groupNumber);
 };
 
 // Manual Move Student (Only inside SAME stack)
@@ -647,4 +782,73 @@ export const preApproveAdminEmail = async (targetEmail: string, approvedBy: stri
   );
 
   await logActivity('GLOBAL', 'PRE_APPROVE_ADMIN', `Pre-approved admin email ${cleanEmail}`);
+};
+
+export const updateGroupTopic = async (
+  tableId: string,
+  groupNumber: number,
+  groupId: string | undefined,
+  topic: string
+): Promise<void> => {
+  const cleanTopic = topic.trim();
+  const canonicalId = `${tableId}_group_${groupNumber}`;
+
+  // Set topic on canonical group document
+  await setDoc(
+    doc(db, 'groups', canonicalId),
+    sanitizeData({
+      tableId,
+      groupNumber,
+      topic: cleanTopic,
+      updatedAt: new Date().toISOString(),
+    }),
+    { merge: true }
+  );
+
+  // If a separate groupId exists, update topic there too
+  if (groupId && groupId !== canonicalId) {
+    try {
+      await setDoc(doc(db, 'groups', groupId), { topic: cleanTopic }, { merge: true });
+    } catch (e) {
+      console.warn('Could not update secondary group doc topic:', e);
+    }
+  }
+
+  await logActivity(
+    tableId,
+    'UPDATE_GROUP_TOPIC',
+    `Updated project topic for Group ${groupNumber}: "${cleanTopic}"`
+  );
+};
+
+export const getGroupTopic = async (tableId: string, groupNumber: number, groupId?: string): Promise<string> => {
+  try {
+    const canonicalId = `${tableId}_group_${groupNumber}`;
+    const canonicalSnap = await getDoc(doc(db, 'groups', canonicalId));
+    if (canonicalSnap.exists() && canonicalSnap.data().topic) {
+      return canonicalSnap.data().topic;
+    }
+
+    if (groupId && groupId !== canonicalId) {
+      const gSnap = await getDoc(doc(db, 'groups', groupId));
+      if (gSnap.exists() && gSnap.data().topic) {
+        return gSnap.data().topic;
+      }
+    }
+
+    const q = query(
+      collection(db, 'groups'),
+      where('tableId', '==', tableId),
+      where('groupNumber', '==', groupNumber)
+    );
+    const snap = await getDocs(q);
+    for (const d of snap.docs) {
+      if (d.data().topic) {
+        return d.data().topic;
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching group topic:', err);
+  }
+  return '';
 };

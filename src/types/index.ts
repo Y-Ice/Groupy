@@ -74,6 +74,7 @@ export interface Group {
   groupNumber: number;
   memberIds: string[];
   createdAt: string;
+  topic?: string;
 }
 
 export interface TableSettings {

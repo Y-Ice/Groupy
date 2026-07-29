@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layers, User, CheckCircle2, AlertCircle, ArrowRight, TableProperties, ShieldCheck, Users } from 'lucide-react';
+import { Layers, User, CheckCircle2, AlertCircle, ArrowRight, TableProperties, ShieldCheck, Users, BookOpen, RotateCw } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
   getTableById,
@@ -9,6 +9,7 @@ import {
   getGroupMembers,
   getTableSettings,
   getStudentById,
+  getGroupTopic,
 } from '../../services/dbService';
 import { ProjectTable, TechStack, Student, TableSettings } from '../../types';
 import { GroupyLogo } from '../../components/common/GroupyLogo';
@@ -35,6 +36,7 @@ export const StudentRegistration: React.FC = () => {
     groupNumber: number;
     stackName: string;
     groupMembers: Student[];
+    topic?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -79,12 +81,16 @@ export const StudentRegistration: React.FC = () => {
               // Student was deleted from group by admin! Clear cache so they can re-register
               localStorage.removeItem(`groupy_submitted_${tableId}`);
             } else if (freshStudent.groupId) {
-              const members = await getGroupMembers(freshStudent.groupId);
+              const [members, topic] = await Promise.all([
+                getGroupMembers(freshStudent.groupId),
+                getGroupTopic(tableId, freshStudent.groupNumber || 1, freshStudent.groupId),
+              ]);
               setSubmissionResult({
                 student: freshStudent,
-                groupNumber: freshStudent.groupNumber,
+                groupNumber: freshStudent.groupNumber || 1,
                 stackName: freshStudent.stackName,
                 groupMembers: members,
+                topic,
               });
             }
           }
@@ -126,14 +132,18 @@ export const StudentRegistration: React.FC = () => {
         stackName: selectedStack.name,
       });
 
-      // Load group members
-      const members = await getGroupMembers(result.student.groupId!);
+      // Load group members & group topic
+      const [members, topic] = await Promise.all([
+        getGroupMembers(result.student.groupId!),
+        getGroupTopic(tableId, result.groupNumber, result.student.groupId!),
+      ]);
 
       const finalResult = {
         student: result.student,
         groupNumber: result.groupNumber,
         stackName: selectedStack.name,
         groupMembers: members,
+        topic,
       };
 
       setSubmissionResult(finalResult);
@@ -235,6 +245,46 @@ export const StudentRegistration: React.FC = () => {
                   Welcome aboard, <span className="font-extrabold text-indigo-600">{submissionResult.student.fullName}</span>!
                 </p>
               </div>
+            </div>
+
+            {/* Assigned Project Topic Banner */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-purple-50/50 to-indigo-50/90 border border-indigo-200/90 shadow-sm relative overflow-hidden space-y-1 text-left">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-indigo-800 font-black text-xs uppercase tracking-wider">
+                  <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-sm">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <span>Assigned Project Topic</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (tableId && submissionResult) {
+                      const latestTopic = await getGroupTopic(
+                        tableId,
+                        submissionResult.groupNumber,
+                        submissionResult.student.groupId || undefined
+                      );
+                      setSubmissionResult((prev) => (prev ? { ...prev, topic: latestTopic } : null));
+                    }
+                  }}
+                  className="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 hover:underline flex items-center gap-1 cursor-pointer bg-white/80 px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs"
+                  title="Refresh Topic"
+                >
+                  <RotateCw className="w-3 h-3" />
+                  Refresh
+                </button>
+              </div>
+
+              <p className="text-sm sm:text-base font-black text-slate-900 leading-snug pt-1">
+                {submissionResult.topic ? (
+                  submissionResult.topic
+                ) : (
+                  <span className="text-slate-500 font-normal italic text-xs">
+                    No topic assigned yet by instructor. Click refresh or check back soon!
+                  </span>
+                )}
+              </p>
             </div>
 
             {/* Group Members Table */}
