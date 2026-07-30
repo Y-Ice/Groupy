@@ -28,7 +28,7 @@ export const GroupyLogo: React.FC<GroupyLogoProps> = ({
             Groupy
           </h1>
           <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-            Class Allocations
+            Pitch Allocations
           </p>
         </div>
       )}

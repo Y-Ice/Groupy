@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser({
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName || 'Class Administrator',
+        displayName: user.displayName || 'Pitch Administrator',
         photoURL: user.photoURL,
         isSuperAdmin: isSuper,
         approvalStatus: isSuper ? 'approved' : approvalStatus,
@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser({
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName || 'Class Administrator',
+        displayName: user.displayName || 'Pitch Administrator',
         photoURL: user.photoURL,
         isSuperAdmin: isSuper,
         approvalStatus: isSuper ? 'approved' : 'pending',

@@ -155,7 +155,7 @@ export const Settings: React.FC = () => {
                 required
                 value={adminName}
                 onChange={(e) => setAdminName(e.target.value)}
-                placeholder="Class Administrator"
+                placeholder="Pitch Administrator"
                 className="w-full px-3.5 py-2.5 rounded-xl glass-input text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>

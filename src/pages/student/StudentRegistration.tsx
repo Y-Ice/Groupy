@@ -339,7 +339,7 @@ export const StudentRegistration: React.FC = () => {
 
             <div className="pt-4 border-t border-slate-200 text-center">
               <p className="text-xs text-slate-500 font-medium">
-                You're all set! Note down your stack and group number for your class representative.
+                You're all set! Note down your stack and group number for your pitch representative.
               </p>
             </div>
           </div>
@@ -450,7 +450,7 @@ export const StudentRegistration: React.FC = () => {
 
         <div className="mt-8 pt-4 border-t border-slate-200 text-center flex items-center justify-center gap-2 text-[11px] text-slate-500 font-semibold">
           <ShieldCheck className="w-4 h-4 text-indigo-600" />
-          <span>Groupy Automated Balancing Engine • Powered by Class Representative</span>
+          <span>Groupy Automated Balancing Engine • Powered by Pitch Representative</span>
         </div>
       </div>
     </div>

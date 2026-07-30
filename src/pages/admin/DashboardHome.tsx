@@ -55,7 +55,7 @@ export const DashboardHome: React.FC = () => {
               <Sparkles className="w-3.5 h-3.5" /> Real-time Group Balancing
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Class Allocations Overview
+              Pitch Allocations Overview
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Scan student QR codes to automatically group students by tech stack with instant equal balancing.

@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
               </div>
               <div className={`overflow-hidden ${collapsed ? 'lg:hidden' : 'block'}`}>
                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{adminName}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Class Representative</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Pitch Representative</p>
               </div>
             </div>
           </div>

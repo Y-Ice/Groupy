@@ -1,7 +1,7 @@
 {
-  "name": "Groupy - Class Group Allocations",
+  "name": "Groupy - Pitch Group Allocations",
   "short_name": "Groupy",
-  "description": "Class project group management & tech stack allocation application for administrators and students",
+  "description": "Pitch project group management & tech stack allocation application for administrators and students",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",

@@ -52,7 +52,7 @@ export const Login: React.FC = () => {
             </div>
           </div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 mt-1">Groupy Workspace</h1>
-          <p className="text-xs font-semibold text-slate-500 mt-1">Class Representative Administrator Portal</p>
+          <p className="text-xs font-semibold text-slate-500 mt-1">Pitch Representative Administrator Portal</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -67,7 +67,7 @@ export const Login: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@class.edu"
+                placeholder="admin@pitch.edu"
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-xl text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all shadow-sm"
               />
             </div>
