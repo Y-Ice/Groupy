@@ -1,17 +1,33 @@
 // Groupy Progressive Web App Service Worker
-const CACHE_NAME = 'groupy-pwa-v1';
+const CACHE_NAME = 'groupy-pwa-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/favicon.png',
   '/favicon.svg',
+  '/pwa-192.png',
+  '/pwa-512.png',
+  '/apple-touch-icon.png',
 ];
 
-// Install Event - Pre-cache essential static app shell assets
+// Install Event - Pre-cache essential static app shell assets safely
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return Promise.allSettled(
+        STATIC_ASSETS.map((asset) =>
+          fetch(asset)
+            .then((response) => {
+              if (response.ok) {
+                return cache.put(asset, response);
+              }
+            })
+            .catch((err) => {
+              console.warn(`[PWA SW] Failed to pre-cache ${asset}:`, err);
+            })
+        )
+      );
     })
   );
   self.skipWaiting();
@@ -31,19 +47,20 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch Event - Stale-while-revalidate strategy for UI assets, network-first for navigation
+// Fetch Event - Network-first for navigation, stale-while-revalidate for assets
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // Ignore non-GET requests or Firebase / API calls
+  // Ignore non-GET requests
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // Skip caching Firebase API / Auth / Firestore requests
+  // Skip caching Firebase API / Auth / Firestore / external endpoints
   if (
     url.hostname.includes('firebase') ||
     url.hostname.includes('googleapis') ||
     url.hostname.includes('identitytoolkit') ||
+    url.hostname.includes('firestore') ||
     url.pathname.startsWith('/api')
   ) {
     return;
@@ -52,8 +69,9 @@ self.addEventListener('fetch', (event) => {
   // Navigation requests: Network first, fallback to cached index.html
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => {
-        return caches.match('/index.html');
+      fetch(request).catch(async () => {
+        const cached = await caches.match('/index.html') || await caches.match('/');
+        return cached || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       })
     );
     return;
