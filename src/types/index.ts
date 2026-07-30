@@ -97,3 +97,17 @@ export interface ActivityLog {
   timestamp: string;
   actor: string;
 }
+
+export type AnnouncementType = 'info' | 'warning' | 'success' | 'alert';
+
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  type: AnnouncementType;
+  targetType: 'all' | 'table';
+  targetId: string; // empty if 'all', tableId if 'table'
+  createdAt: string; // ISO String
+  createdBy: string; // name or email of admin
+}
+

@@ -13,6 +13,8 @@ import {
 } from '../../services/dbService';
 import { ProjectTable, TechStack, Student, TableSettings } from '../../types';
 import { GroupyLogo } from '../../components/common/GroupyLogo';
+import { PitchReminderCard } from '../../components/student/PitchReminderCard';
+import { StudentInbox } from '../../components/student/StudentInbox';
 
 export const StudentRegistration: React.FC = () => {
   const { tableId } = useParams<{ tableId: string }>();
@@ -287,6 +289,15 @@ export const StudentRegistration: React.FC = () => {
               </p>
             </div>
 
+            {/* Pitch Day Reminder Card */}
+            <PitchReminderCard
+              groupNumber={submissionResult.groupNumber}
+              stackName={submissionResult.stackName}
+              topic={submissionResult.topic}
+              groupMembers={submissionResult.groupMembers}
+              tableTitle={table?.title}
+            />
+
             {/* Group Members Table */}
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -453,6 +464,7 @@ export const StudentRegistration: React.FC = () => {
           <span>Groupy Automated Balancing Engine • Powered by Pitch Representative</span>
         </div>
       </div>
+      {tableId && <StudentInbox tableId={tableId} />}
     </div>
   );
 };

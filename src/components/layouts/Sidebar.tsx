@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Megaphone,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { GroupyLogo } from '../common/GroupyLogo';
@@ -36,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
   const navItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+    { label: 'Announcements', path: '/admin/announcements', icon: Megaphone },
     { label: 'Tables', path: '/admin/tables', icon: TableProperties },
     { label: 'Stacks', path: '/admin/stacks', icon: Layers },
     { label: 'Students', path: '/admin/students', icon: Users },

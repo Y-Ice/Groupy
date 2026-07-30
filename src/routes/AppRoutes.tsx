@@ -6,6 +6,7 @@ import { AdminLayout } from '../components/layouts/AdminLayout';
 import { Login } from '../pages/admin/Login';
 import { ForgotPassword } from '../pages/admin/ForgotPassword';
 import { DashboardHome } from '../pages/admin/DashboardHome';
+import { Announcements } from '../pages/admin/Announcements';
 import { Tables } from '../pages/admin/Tables';
 import { Stacks } from '../pages/admin/Stacks';
 import { Students } from '../pages/admin/Students';
@@ -29,6 +30,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardHome />} />
+          <Route path="announcements" element={<Announcements />} />
           <Route path="tables" element={<Tables />} />
           <Route path="stacks" element={<Stacks />} />
           <Route path="students" element={<Students />} />

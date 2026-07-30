@@ -15,12 +15,32 @@
         "notes": { "type": "string" }
       },
       "required": ["email", "status"]
+    },
+    "Announcement": {
+      "title": "Admin Broadcast Announcement",
+      "description": "Represents push notifications and reminders broadcasted by administrators to student screens.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 100 },
+        "message": { "type": "string", "maxLength": 500 },
+        "type": { "type": "string", "enum": ["info", "warning", "success", "alert"] },
+        "targetType": { "type": "string", "enum": ["all", "table"] },
+        "targetId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["title", "message", "type", "targetType", "createdAt"]
     }
   },
   "firestore": {
     "/admin_approvals/{email}": {
       "schema": "AdminApproval",
       "description": "Admin access requests keyed by lowercased email address"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Announcements and pitch notifications triggered by administrators"
     }
   }
 }

@@ -41,6 +41,12 @@ service cloud.firestore {
     match /activityLogs/{logId} {
       allow read, write: if true;
     }
+
+    // Announcements - public read for students, authenticated write for admins
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
   }
 }
 

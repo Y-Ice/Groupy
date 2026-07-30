@@ -14,7 +14,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { ProjectTable, TechStack, Student, Group, TableSettings, ActivityLog, SUPER_ADMIN_EMAIL, AdminAccessRequest, AdminApprovalStatus } from '../types';
+import { ProjectTable, TechStack, Student, Group, TableSettings, ActivityLog, SUPER_ADMIN_EMAIL, AdminAccessRequest, AdminApprovalStatus, Announcement } from '../types';
 
 // Default Stacks list
 export const DEFAULT_STACKS: Omit<TechStack, 'id'>[] = [
@@ -853,4 +853,37 @@ export const getGroupTopic = async (tableId: string, groupNumber: number, groupI
     console.warn('Error fetching group topic:', err);
   }
   return '';
+};
+
+// --- ANNOUNCEMENTS ---
+export const createAnnouncement = async (
+  data: Omit<Announcement, 'id' | 'createdAt'>
+): Promise<Announcement> => {
+  const docRef = doc(collection(db, 'announcements'));
+  const newAnnouncement: Announcement = {
+    id: docRef.id,
+    ...data,
+    createdAt: new Date().toISOString(),
+  };
+  const cleanAnnouncement = sanitizeData(newAnnouncement);
+  await setDoc(docRef, cleanAnnouncement);
+  
+  const targetDesc = data.targetType === 'all' ? 'all tables' : `table ${data.targetId}`;
+  await logActivity(
+    data.targetId || 'GLOBAL',
+    'CREATE_ANNOUNCEMENT',
+    `Broadcasted "${data.title}" announcement to ${targetDesc}`
+  );
+  return newAnnouncement;
+};
+
+export const getAnnouncements = async (): Promise<Announcement[]> => {
+  const snapshot = await getDocs(collection(db, 'announcements'));
+  const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Announcement));
+  return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const deleteAnnouncement = async (announcementId: string): Promise<void> => {
+  await deleteDoc(doc(db, 'announcements', announcementId));
+  await logActivity('GLOBAL', 'DELETE_ANNOUNCEMENT', `Deleted announcement ${announcementId}`);
 };
