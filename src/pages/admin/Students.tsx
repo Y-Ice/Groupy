@@ -117,15 +117,17 @@ export const Students: React.FC = () => {
     showToast('success', 'Exported CSV', `Exported ${filteredStudents.length} student records.`);
   };
 
-  const filteredStudents = students.filter((s) => {
-    const matchesSearch =
-      s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.studentId && s.studentId.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      s.stackName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTable = selectedTableId === 'all' || s.tableId === selectedTableId;
-    const matchesStack = selectedStackId === 'all' || s.stackId === selectedStackId;
-    return matchesSearch && matchesTable && matchesStack;
-  });
+  const filteredStudents = students
+    .filter((s) => {
+      const matchesSearch =
+        s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.studentId && s.studentId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        s.stackName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesTable = selectedTableId === 'all' || s.tableId === selectedTableId;
+      const matchesStack = selectedStackId === 'all' || s.stackId === selectedStackId;
+      return matchesSearch && matchesTable && matchesStack;
+    })
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }));
 
   return (
     <div className="space-y-6">
@@ -147,7 +149,7 @@ export const Students: React.FC = () => {
       </div>
 
       {/* Filters Toolbar */}
-      <div className="glass-card p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="glass-card p-3.5 sm:p-4 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-4">
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -155,20 +157,20 @@ export const Students: React.FC = () => {
             placeholder="Search student name or matrix ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl glass-input text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2.5 sm:py-2 rounded-xl glass-input text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full md:w-auto">
           {/* Table Filter */}
           <select
             value={selectedTableId}
             onChange={(e) => setSelectedTableId(e.target.value)}
-            className="px-3 py-2 rounded-xl glass-input text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
+            className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl glass-input text-xs font-semibold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="all">All Tables</option>
+            <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Tables</option>
             {tables.map((t) => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={t.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                 {t.title} ({t.courseCode})
               </option>
             ))}
@@ -178,11 +180,11 @@ export const Students: React.FC = () => {
           <select
             value={selectedStackId}
             onChange={(e) => setSelectedStackId(e.target.value)}
-            className="px-3 py-2 rounded-xl glass-input text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
+            className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl glass-input text-xs font-semibold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="all">All Stacks</option>
+            <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Stacks</option>
             {stacks.map((s) => (
-              <option key={s.id} value={s.id}>
+              <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                 {s.name}
               </option>
             ))}
@@ -190,7 +192,7 @@ export const Students: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Student List & Cards */}
       {loading ? (
         <div className="glass-card p-8 rounded-2xl animate-pulse h-64 bg-slate-200/50 dark:bg-slate-800/50" />
       ) : filteredStudents.length === 0 ? (
@@ -202,79 +204,163 @@ export const Students: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-800/80">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-xs">
-              <thead className="bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200/50 dark:border-slate-800">
-                <tr>
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">Tech Stack</th>
-                  <th className="py-3 px-4">Assigned Group</th>
-                  <th className="py-3 px-4">Submission Time</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200/40 dark:divide-slate-800/60 text-slate-800 dark:text-slate-200">
-                {filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-sm">
-                      {student.fullName}
-                      {student.studentId && (
-                        <span className="block text-[10px] text-slate-500 font-mono mt-0.5">ID: {student.studentId}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold border border-indigo-500/20">
-                        {student.stackName}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+        <>
+          {/* Mobile Card List (Visible on mobile screens) */}
+          <div className="block md:hidden space-y-3">
+            {filteredStudents.map((student) => {
+              const table = tables.find((t) => t.id === student.tableId);
+              return (
+                <div
+                  key={`mobile-${student.id}`}
+                  className="glass-card p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 space-y-3 shadow-xs"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base leading-tight">
+                        {student.fullName}
+                      </h3>
+                      {student.studentId ? (
+                        <p className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+                          ID: {student.studentId}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-[11px] border border-indigo-500/20 shrink-0">
                       Group {student.groupNumber || 'Unassigned'}
-                    </td>
-                    <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
-                      {new Date(student.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
-                      {new Date(student.submittedAt).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => {
-                            setMovingStudent(student);
-                            const available = groups.filter(
-                              (g) => g.tableId === student.tableId && g.stackId === student.stackId
-                            );
-                            if (available.length > 0) setTargetGroupId(available[0].id);
-                          }}
-                          className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-                          title="Move Group"
-                        >
-                          <ArrowRightLeft className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingStudent(student);
-                            setEditName(student.fullName);
-                          }}
-                          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          title="Edit Name"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setStudentToDelete(student)}
-                          className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                          title="Delete Student"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                    <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800/60 inline-flex items-center whitespace-nowrap shrink-0 shadow-2xs">
+                      {student.stackName}
+                    </span>
+                    {table && (
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs truncate max-w-[180px] inline-flex items-center">
+                        {table.title}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-slate-400 ml-auto flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {new Date(student.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMovingStudent(student);
+                        const available = groups.filter(
+                          (g) => g.tableId === student.tableId && g.stackId === student.stackId
+                        );
+                        if (available.length > 0) setTargetGroupId(available[0].id);
+                      }}
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all cursor-pointer"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>Move</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingStudent(student);
+                        setEditName(student.fullName);
+                      }}
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStudentToDelete(student)}
+                      className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-all cursor-pointer"
+                      title="Delete Student"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+
+          {/* Desktop Table (Visible on md and larger screens) */}
+          <div className="hidden md:block glass-card rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-800/80">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200/50 dark:border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">Tech Stack</th>
+                    <th className="py-3 px-4">Assigned Group</th>
+                    <th className="py-3 px-4">Submission Time</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/40 dark:divide-slate-800/60 text-slate-800 dark:text-slate-200">
+                  {filteredStudents.map((student) => (
+                    <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3 px-4 font-semibold text-sm">
+                        {student.fullName}
+                        {student.studentId && (
+                          <span className="block text-[10px] text-slate-500 font-mono mt-0.5">ID: {student.studentId}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold border border-indigo-500/20 inline-flex items-center whitespace-nowrap shrink-0">
+                          {student.stackName}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+                        Group {student.groupNumber || 'Unassigned'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
+                        {new Date(student.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
+                        {new Date(student.submittedAt).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => {
+                              setMovingStudent(student);
+                              const available = groups.filter(
+                                (g) => g.tableId === student.tableId && g.stackId === student.stackId
+                              );
+                              if (available.length > 0) setTargetGroupId(available[0].id);
+                            }}
+                            className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                            title="Move Group"
+                          >
+                            <ArrowRightLeft className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingStudent(student);
+                              setEditName(student.fullName);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="Edit Name"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setStudentToDelete(student)}
+                            className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                            title="Delete Student"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Edit Name Modal */}

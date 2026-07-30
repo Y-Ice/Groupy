@@ -307,7 +307,9 @@ export const StudentRegistration: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {submissionResult.groupMembers.map((m, idx) => (
+                    {[...submissionResult.groupMembers]
+                      .sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }))
+                      .map((m, idx) => (
                       <tr key={m.id} className={m.id === submissionResult.student.id ? 'bg-indigo-50/70 font-bold text-indigo-950' : 'hover:bg-slate-50'}>
                         <td className="py-3 px-4 text-slate-400 font-semibold">{idx + 1}</td>
                         <td className="py-3 px-4 flex items-center gap-2">
@@ -319,7 +321,7 @@ export const StudentRegistration: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold inline-block">
+                          <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold inline-flex items-center whitespace-nowrap shrink-0 shadow-2xs">
                             {m.stackName}
                           </span>
                         </td>

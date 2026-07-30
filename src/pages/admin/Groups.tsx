@@ -213,7 +213,9 @@ export const Groups: React.FC = () => {
                 memberMap.set(m.id, m);
               }
             });
-            let groupMembers = Array.from(memberMap.values());
+            let groupMembers = Array.from(memberMap.values()).sort((a, b) =>
+              a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' })
+            );
 
             if (selectedStackId !== 'all') {
               groupMembers = groupMembers.filter((s) => s.stackId === selectedStackId);
@@ -257,7 +259,7 @@ export const Groups: React.FC = () => {
                       {Object.entries(stackBreakdown).map(([stName, cnt]) => (
                         <span
                           key={stName}
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 inline-flex items-center whitespace-nowrap shrink-0"
                         >
                           {stName}: {cnt}
                         </span>

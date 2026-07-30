@@ -382,7 +382,8 @@ export const registerAndAssignStudent = async (params: {
 export const getGroupMembers = async (groupId: string): Promise<Student[]> => {
   const q = query(collection(db, 'students'), where('groupId', '==', groupId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Student));
+  const students = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Student));
+  return students.sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }));
 };
 
 // Fetch all students
@@ -394,7 +395,8 @@ export const getStudents = async (tableId?: string): Promise<Student[]> => {
     q = collection(db, 'students');
   }
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Student));
+  const students = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Student));
+  return students.sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }));
 };
 
 // Fetch all groups
