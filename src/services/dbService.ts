@@ -11,7 +11,8 @@ import {
   where,
   orderBy,
   runTransaction,
-  serverTimestamp
+  serverTimestamp,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ProjectTable, TechStack, Student, Group, TableSettings, ActivityLog, SUPER_ADMIN_EMAIL, AdminAccessRequest, AdminApprovalStatus, Announcement } from '../types';
@@ -379,11 +380,101 @@ export const registerAndAssignStudent = async (params: {
 };
 
 // Fetch all students for a specific group
-export const getGroupMembers = async (groupId: string): Promise<Student[]> => {
-  const q = query(collection(db, 'students'), where('groupId', '==', groupId));
+export const getGroupMembers = async (
+  groupId: string,
+  tableId?: string,
+  groupNumber?: number
+): Promise<Student[]> => {
+  let q;
+  if (tableId) {
+    q = query(collection(db, 'students'), where('tableId', '==', tableId));
+  } else {
+    q = query(collection(db, 'students'), where('groupId', '==', groupId));
+  }
   const snap = await getDocs(q);
   const students = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Student));
-  return students.sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }));
+
+  let filtered = students;
+  if (tableId && groupNumber !== undefined) {
+    const tablesSnap = await getDocs(collection(db, 'tables'));
+    const rawTables = tablesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as ProjectTable));
+    
+    // Build canonical table lookup map: matches by ID or title (case-insensitive & trimmed)
+    const tableLookup = new Map<string, ProjectTable>();
+    rawTables.forEach((t) => {
+      if (t.id) tableLookup.set(t.id.toLowerCase().trim(), t);
+      if (t.title) tableLookup.set(t.title.toLowerCase().trim(), t);
+    });
+
+    filtered = students.filter((s) => {
+      if (s.groupId && s.groupId === groupId) return true;
+      if (s.groupNumber === groupNumber) {
+        const sCanonicalId = s.tableId && tableLookup.has(s.tableId.trim().toLowerCase()) 
+          ? tableLookup.get(s.tableId.trim().toLowerCase())!.id 
+          : s.tableId;
+        const targetCanonicalId = tableId && tableLookup.has(tableId.trim().toLowerCase())
+          ? tableLookup.get(tableId.trim().toLowerCase())!.id
+          : tableId;
+        if (sCanonicalId === targetCanonicalId) return true;
+      }
+      return false;
+    });
+  }
+
+  return filtered.sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }));
+};
+
+// Subscribe to real-time updates for group members of a specific group
+export const subscribeToGroupMembers = (
+  groupId: string,
+  tableId: string | undefined,
+  groupNumber: number | undefined,
+  onUpdate: (students: Student[]) => void,
+  onError?: (err: Error) => void
+): (() => void) => {
+  let q;
+  if (tableId) {
+    q = query(collection(db, 'students'), where('tableId', '==', tableId));
+  } else {
+    q = query(collection(db, 'students'), where('groupId', '==', groupId));
+  }
+
+  return onSnapshot(q, async (snap) => {
+    try {
+      const tablesSnap = await getDocs(collection(db, 'tables'));
+      const rawTables = tablesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as ProjectTable));
+      
+      // Build canonical table lookup map: matches by ID or title (case-insensitive & trimmed)
+      const tableLookup = new Map<string, ProjectTable>();
+      rawTables.forEach((t) => {
+        if (t.id) tableLookup.set(t.id.toLowerCase().trim(), t);
+        if (t.title) tableLookup.set(t.title.toLowerCase().trim(), t);
+      });
+
+      const students = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) } as Student));
+      
+      const filtered = students.filter((s) => {
+        if (s.groupId && s.groupId === groupId) return true;
+        if (groupNumber !== undefined && s.groupNumber === groupNumber) {
+          const sCanonicalId = s.tableId && tableLookup.has(s.tableId.trim().toLowerCase()) 
+            ? tableLookup.get(s.tableId.trim().toLowerCase())!.id 
+            : s.tableId;
+          const targetCanonicalId = tableId && tableLookup.has(tableId.trim().toLowerCase())
+            ? tableLookup.get(tableId.trim().toLowerCase())!.id
+            : tableId;
+          if (sCanonicalId === targetCanonicalId) return true;
+        }
+        return false;
+      });
+
+      const sorted = filtered.sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }));
+      onUpdate(sorted);
+    } catch (err) {
+      if (onError) onError(err as Error);
+    }
+  }, (err) => {
+    if (onError) onError(err);
+  });
 };
 
 // Fetch all students

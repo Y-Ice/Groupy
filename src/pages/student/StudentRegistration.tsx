@@ -10,6 +10,7 @@ import {
   getTableSettings,
   getStudentById,
   getGroupTopic,
+  subscribeToGroupMembers,
 } from '../../services/dbService';
 import { ProjectTable, TechStack, Student, TableSettings } from '../../types';
 import { GroupyLogo } from '../../components/common/GroupyLogo';
@@ -83,7 +84,7 @@ export const StudentRegistration: React.FC = () => {
               localStorage.removeItem(`groupy_submitted_${tableId}`);
             } else if (freshStudent.groupId) {
               const [members, topic] = await Promise.all([
-                getGroupMembers(freshStudent.groupId),
+                getGroupMembers(freshStudent.groupId, tableId, freshStudent.groupNumber || 1),
                 getGroupTopic(tableId, freshStudent.groupNumber || 1, freshStudent.groupId),
               ]);
               setSubmissionResult({
@@ -105,6 +106,32 @@ export const StudentRegistration: React.FC = () => {
 
     loadData();
   }, [tableId]);
+
+  // Listen to real-time updates for group members
+  useEffect(() => {
+    const groupId = submissionResult?.student?.groupId;
+    if (!groupId) return;
+
+    const unsubscribe = subscribeToGroupMembers(
+      groupId,
+      submissionResult?.student?.tableId || tableId,
+      submissionResult?.groupNumber,
+      (updatedMembers) => {
+        setSubmissionResult((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            groupMembers: updatedMembers,
+          };
+        });
+      },
+      (err) => {
+        console.error('Failed to listen to group members:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [submissionResult?.student?.groupId, submissionResult?.groupNumber, tableId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +162,7 @@ export const StudentRegistration: React.FC = () => {
 
       // Load group members & group topic
       const [members, topic] = await Promise.all([
-        getGroupMembers(result.student.groupId!),
+        getGroupMembers(result.student.groupId!, tableId, result.groupNumber),
         getGroupTopic(tableId, result.groupNumber, result.student.groupId!),
       ]);
 
